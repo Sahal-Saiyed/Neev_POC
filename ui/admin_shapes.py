@@ -241,6 +241,68 @@ def render_general_shape_card(shape: dict):
                 st.session_state.admin_general_shape_category = category
                 st.rerun()
 
+def build_output_rows_from_form(output_count: int, existing_outputs: list, key_prefix: str):
+    output_rows = []
+
+    for i in range(int(output_count)):
+        old_output = existing_outputs[i] if i < len(existing_outputs) else {}
+
+        st.markdown(f"**Output {i + 1}**")
+
+        col1, col2, col3 = st.columns([1, 3, 1])
+
+        with col1:
+            output_name = st.text_input(
+                "Output Name",
+                value=old_output.get("output_name", f"L{i + 1}"),
+                key=f"{key_prefix}_output_name_{i}"
+            )
+
+        with col2:
+            formula = st.text_input(
+                "Formula",
+                value=old_output.get("formula", ""),
+                key=f"{key_prefix}_formula_{i}"
+            )
+
+        with col3:
+            unit = st.text_input(
+                "Unit",
+                value=old_output.get("unit", "m"),
+                key=f"{key_prefix}_unit_{i}"
+            )
+
+        output_rows.append({
+            "output_name": output_name,
+            "formula": formula,
+            "unit": unit
+        })
+
+    return output_rows
+
+
+def validate_output_rows(output_rows: list):
+    cleaned_outputs = []
+
+    for output in output_rows:
+        output_name = output.get("output_name", "").strip()
+        formula = output.get("formula", "").strip()
+        unit = output.get("unit", "m").strip() or "m"
+
+        if not output_name:
+            return False, "Output name is required.", []
+
+        if not formula:
+            return False, f"Formula is required for {output_name}.", []
+
+        cleaned_outputs.append({
+            "output_name": output_name,
+            "formula": formula,
+            "unit": unit
+        })
+
+    return True, "", cleaned_outputs
+
 def admin_beam_shape_tab():
     mode = st.session_state.admin_shape_mode
 
@@ -425,59 +487,43 @@ def admin_view_shape_formula():
             st.rerun()
 
 def admin_add_shape_form(category="beam"):
-    st.subheader(f"Add {get_general_shape_category_label(category)} Shape")
+    category_label = get_general_shape_category_label(category)
+
+    st.subheader(f"Add {category_label} Shape")
+    st.caption("General Shapes & Formulas")
+
+    st.markdown("---")
 
     with st.form(f"admin_add_shape_form_{category}"):
-        shape_name = st.text_input("Shape Name")
-        description = st.text_area("Description")
+        shape_name = st.text_input(
+            "Shape Name",
+            placeholder=f"Enter {category_label.lower()} shape name"
+        )
+
+        description = st.text_area(
+            "Description",
+            placeholder="Short description of this shape"
+        )
 
         uploaded_image = st.file_uploader(
-            "Upload Shape Image",
+            "Shape Image",
             type=["png", "jpg", "jpeg"]
         )
 
         output_count = st.number_input(
             "Number of Outputs",
             min_value=1,
-            max_value=6,
+            max_value=10,
             value=1
         )
 
         st.markdown("### Output Formulas")
 
-        output_rows = []
-
-        for i in range(int(output_count)):
-            st.markdown(f"**Output {i + 1}**")
-
-            col1, col2, col3 = st.columns([1, 3, 1])
-
-            with col1:
-                output_name = st.text_input(
-                    "Output Name",
-                    value=f"L{i + 1}",
-                    key=f"add_output_name_{i}"
-                )
-
-            with col2:
-                formula = st.text_input(
-                    "Formula",
-                    key=f"add_formula_{i}",
-                    placeholder="Example: (LD + (10 * D)) - CX - CO"
-                )
-
-            with col3:
-                unit = st.text_input(
-                    "Unit",
-                    value="m",
-                    key=f"add_unit_{i}"
-                )
-
-            output_rows.append({
-                "output_name": output_name,
-                "formula": formula,
-                "unit": unit
-            })
+        output_rows = build_output_rows_from_form(
+            output_count=output_count,
+            existing_outputs=[],
+            key_prefix=f"add_general_{category}"
+        )
 
         col_save, col_cancel = st.columns(2)
 
@@ -499,33 +545,29 @@ def admin_add_shape_form(category="beam"):
             st.error("Shape name is required.")
             return
 
-        cleaned_outputs = []
-
-        for row in output_rows:
-            if not row["output_name"].strip() or not row["formula"].strip():
-                st.error("Each output must have output name and formula.")
-                return
-
-            cleaned_outputs.append({
-                "output_name": row["output_name"].strip(),
-                "formula": row["formula"].strip(),
-                "unit": row["unit"].strip() or "m"
-            })
-
         existing_shape = find_shape_by_name_and_category(
             shape_name=shape_name,
             category=category
         )
 
         if existing_shape:
-            st.error("A shape with this name already exists in this category.")
+            st.error("A general shape with this name already exists in this category.")
             return
 
-        image_path = save_uploaded_shape_image(
-            uploaded_file=uploaded_image,
-            shape_name=shape_name,
-            category=category
-        )
+        is_valid, error_message, cleaned_outputs = validate_output_rows(output_rows)
+
+        if not is_valid:
+            st.error(error_message)
+            return
+
+        image_path = None
+
+        if uploaded_image is not None:
+            image_path = save_uploaded_shape_image(
+                uploaded_file=uploaded_image,
+                shape_name=shape_name,
+                category=category
+            )
 
         create_shape(
             shape_name=shape_name,
@@ -536,7 +578,7 @@ def admin_add_shape_form(category="beam"):
             created_by=st.session_state.email
         )
 
-        st.success("Shape added successfully.")
+        st.success(f"{category_label} shape added successfully.")
         st.session_state.admin_shape_mode = "list"
         st.rerun()
 
@@ -553,16 +595,22 @@ def admin_edit_shape_form():
 
         return
 
-    st.subheader(f"Edit Shape: {shape.get('shape_name', 'Shape')}")
-
-    image_path = shape.get("image_path")
-
-    if image_path and os.path.exists(image_path):
-        st.image(image_path, width=350)
-
+    shape_id = str(shape["_id"])
+    category = shape.get("category", "beam")
+    category_label = get_general_shape_category_label(category)
+    old_image_path = shape.get("image_path")
     old_outputs = shape.get("outputs", [])
 
-    with st.form("admin_edit_shape_form"):
+    st.subheader(f"Edit {category_label} Shape")
+    st.caption("General Shapes & Formulas")
+
+    st.markdown("---")
+
+    if old_image_path and os.path.exists(old_image_path):
+        st.markdown("**Current Shape Image**")
+        st.image(old_image_path, width=350)
+
+    with st.form(f"admin_edit_shape_form_{shape_id}"):
         shape_name = st.text_input(
             "Shape Name",
             value=shape.get("shape_name", "")
@@ -581,47 +629,17 @@ def admin_edit_shape_form():
         output_count = st.number_input(
             "Number of Outputs",
             min_value=1,
-            max_value=6,
+            max_value=10,
             value=max(1, len(old_outputs))
         )
 
         st.markdown("### Output Formulas")
 
-        output_rows = []
-
-        for i in range(int(output_count)):
-            old_output = old_outputs[i] if i < len(old_outputs) else {}
-
-            st.markdown(f"**Output {i + 1}**")
-
-            col1, col2, col3 = st.columns([1, 3, 1])
-
-            with col1:
-                output_name = st.text_input(
-                    "Output Name",
-                    value=old_output.get("output_name", f"L{i + 1}"),
-                    key=f"edit_output_name_{i}"
-                )
-
-            with col2:
-                formula = st.text_input(
-                    "Formula",
-                    value=old_output.get("formula", ""),
-                    key=f"edit_formula_{i}"
-                )
-
-            with col3:
-                unit = st.text_input(
-                    "Unit",
-                    value=old_output.get("unit", "m"),
-                    key=f"edit_unit_{i}"
-                )
-
-            output_rows.append({
-                "output_name": output_name,
-                "formula": formula,
-                "unit": unit
-            })
+        output_rows = build_output_rows_from_form(
+            output_count=output_count,
+            existing_outputs=old_outputs,
+            key_prefix=f"edit_general_{shape_id}"
+        )
 
         is_active = st.checkbox(
             "Active",
@@ -648,49 +666,42 @@ def admin_edit_shape_form():
             st.error("Shape name is required.")
             return
 
-        cleaned_outputs = []
-
-        for row in output_rows:
-            if not row["output_name"].strip() or not row["formula"].strip():
-                st.error("Each output must have output name and formula.")
-                return
-
-            cleaned_outputs.append({
-                "output_name": row["output_name"].strip(),
-                "formula": row["formula"].strip(),
-                "unit": row["unit"].strip() or "m"
-            })
-
         duplicate_shape = find_duplicate_shape(
-            shape_id=str(shape["_id"]),
+            shape_id=shape_id,
             shape_name=shape_name,
-            category=shape.get("category", "beam")
+            category=category
         )
 
         if duplicate_shape:
-            st.error("Another shape with this name already exists.")
+            st.error("Another general shape with this name already exists in this category.")
             return
 
-        new_image_path = image_path
+        is_valid, error_message, cleaned_outputs = validate_output_rows(output_rows)
+
+        if not is_valid:
+            st.error(error_message)
+            return
+
+        image_path = old_image_path
 
         if uploaded_image is not None:
-            new_image_path = save_uploaded_shape_image(
+            image_path = save_uploaded_shape_image(
                 uploaded_file=uploaded_image,
                 shape_name=shape_name,
-                category=shape.get("category", "beam")
+                category=category
             )
 
         update_shape(
-            shape_id=str(shape["_id"]),
+            shape_id=shape_id,
             shape_name=shape_name,
             description=description,
-            image_path=new_image_path,
+            image_path=image_path,
             outputs=cleaned_outputs,
             is_active=is_active,
             updated_by=st.session_state.email
         )
 
-        st.success("Shape updated successfully.")
+        st.success(f"{category_label} shape updated successfully.")
         st.session_state.admin_shape_mode = "view"
         st.rerun()
 
