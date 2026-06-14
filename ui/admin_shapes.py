@@ -25,6 +25,37 @@ from ui.common import (
     render_abbreviations_for_outputs
 )
 
+GENERAL_SHAPE_CATEGORIES = [
+    {
+        "key": "beam",
+        "label": "Beam",
+        "title": "Beam Shapes"
+    },
+    {
+        "key": "slab",
+        "label": "Slab",
+        "title": "Slab Shapes"
+    },
+    {
+        "key": "column",
+        "label": "Column / SW",
+        "title": "Column / SW Shapes"
+    },
+    {
+        "key": "footing",
+        "label": "Footing / Raft",
+        "title": "Footing / Raft Shapes"
+    }
+]
+
+
+def get_general_shape_category_label(category: str):
+    for item in GENERAL_SHAPE_CATEGORIES:
+        if item["key"] == category:
+            return item["label"]
+
+    return category.title()
+
 def admin_shape_formula_management_page():
     st.title("Shape & Formula Management")
     st.caption("Home • Master Data • Shapes & Formulas")
@@ -58,6 +89,157 @@ def admin_general_shapes_tab():
 
     with tab_footing:
         st.info("Footing / Raft shape management will be developed later.")
+
+def admin_general_shapes_tab():
+    mode = st.session_state.admin_shape_mode
+
+    if mode == "list":
+        tab_beam, tab_slab, tab_column, tab_footing = st.tabs(
+            ["Beam", "Slab", "Column / SW", "Footing / Raft"]
+        )
+
+        with tab_beam:
+            admin_general_shape_category_list(
+                category="beam",
+                title="Beam Shapes"
+            )
+
+        with tab_slab:
+            admin_general_shape_category_list(
+                category="slab",
+                title="Slab Shapes"
+            )
+
+        with tab_column:
+            admin_general_shape_category_list(
+                category="column",
+                title="Column / SW Shapes"
+            )
+
+        with tab_footing:
+            admin_general_shape_category_list(
+                category="footing",
+                title="Footing / Raft Shapes"
+            )
+
+    elif mode == "add":
+        admin_add_shape_form(
+            category=st.session_state.get("admin_general_shape_category", "beam")
+        )
+
+    elif mode == "view":
+        admin_view_shape_formula()
+
+    elif mode == "edit":
+        admin_edit_shape_form()
+
+def admin_general_shape_category_list(category: str, title: str):
+    header_col1, header_col2 = st.columns([3, 1])
+
+    with header_col1:
+        st.subheader(title)
+
+    with header_col2:
+        if st.button(
+            f"+ Add {get_general_shape_category_label(category)} Shape",
+            use_container_width=True,
+            key=f"add_general_shape_{category}"
+        ):
+            st.session_state.admin_shape_mode = "add"
+            st.session_state.selected_admin_shape_id = None
+            st.session_state.admin_general_shape_category = category
+            st.rerun()
+
+    search_col, status_col = st.columns([3, 1])
+
+    with search_col:
+        search_text = st.text_input(
+            "Search Shape",
+            placeholder=f"Search {get_general_shape_category_label(category).lower()} shape",
+            label_visibility="collapsed",
+            key=f"general_shape_search_{category}"
+        )
+
+    with status_col:
+        status_filter = st.selectbox(
+            "Status",
+            ["All", "Active", "Inactive"],
+            key=f"general_shape_status_{category}"
+        )
+
+    shapes = list_shapes(
+        category=category,
+        search_text=search_text,
+        status_filter=status_filter
+    )
+
+    if not shapes:
+        st.info(f"No {get_general_shape_category_label(category).lower()} shapes found.")
+        return
+
+    for shape in shapes:
+        render_general_shape_card(shape)
+
+def render_general_shape_card(shape: dict):
+    shape_id = str(shape["_id"])
+    shape_name = shape.get("shape_name", "Untitled Shape")
+    description = shape.get("description", "")
+    category = shape.get("category", "beam")
+    outputs = shape.get("outputs", [])
+    image_path = shape.get("image_path")
+    status = "Active" if shape.get("is_active", True) else "Inactive"
+
+    with st.container(border=True):
+        image_col, info_col, formula_col, action_col = st.columns([3, 3, 3, 1])
+
+        with image_col:
+            if image_path and os.path.exists(image_path):
+                st.image(image_path, use_container_width=True)
+            else:
+                st.caption("No image")
+
+        with info_col:
+            st.markdown(f"### {shape_name}")
+            st.write("**Type:** General Shape")
+            st.write(f"**Category:** {get_general_shape_category_label(category)}")
+            st.write(f"**Status:** {status}")
+
+            if description:
+                st.write(f"**Description:** {description}")
+
+        with formula_col:
+            st.markdown("**Formulas**")
+
+            if not outputs:
+                st.caption("No formulas added.")
+            else:
+                for output in outputs:
+                    st.write(
+                        f"**{output.get('output_name', 'Output')} "
+                        f"({output.get('unit', 'm')})**: "
+                        f"`{output.get('formula', 'N/A')}`"
+                    )
+
+        with action_col:
+            if st.button(
+                "View",
+                key=f"view_general_shape_{shape_id}",
+                use_container_width=True
+            ):
+                st.session_state.selected_admin_shape_id = shape_id
+                st.session_state.admin_shape_mode = "view"
+                st.session_state.admin_general_shape_category = category
+                st.rerun()
+
+            if st.button(
+                "Edit",
+                key=f"edit_general_shape_{shape_id}",
+                use_container_width=True
+            ):
+                st.session_state.selected_admin_shape_id = shape_id
+                st.session_state.admin_shape_mode = "edit"
+                st.session_state.admin_general_shape_category = category
+                st.rerun()
 
 def admin_beam_shape_tab():
     mode = st.session_state.admin_shape_mode
@@ -174,48 +356,64 @@ def admin_view_shape_formula():
 
         return
 
-    st.subheader(shape.get("shape_name", "Shape"))
-    st.caption(f"Category: {shape.get('category', 'N/A')}")
-
+    shape_name = shape.get("shape_name", "Shape")
+    category = shape.get("category", "beam")
+    description = shape.get("description", "")
     image_path = shape.get("image_path")
+    outputs = shape.get("outputs", [])
 
-    if image_path and os.path.exists(image_path):
-        st.image(image_path, width=400)
-    else:
-        st.info("No image available for this shape.")
+    st.subheader(shape_name)
+    st.caption(f"General Shape • {get_general_shape_category_label(category)}")
 
     st.markdown("---")
 
-    st.subheader("Formulas")
+    info_col1, info_col2 = st.columns(2)
 
-    outputs = shape.get("outputs", [])
+    with info_col1:
+        st.write("**Type:** General Shape")
+        st.write(f"**Category:** {get_general_shape_category_label(category)}")
+        st.write(f"**Status:** {'Active' if shape.get('is_active', True) else 'Inactive'}")
 
-    if not outputs:
-        st.warning("No formulas added.")
-    else:
-        for output in outputs:
-            with st.container(border=True):
-                st.write(f"**Output Name:** {output.get('output_name', 'N/A')}")
-                st.code(output.get("formula", ""), language="python")
-                st.write(f"**Unit:** {output.get('unit', 'm')}")
+    with info_col2:
+        st.write(f"**Created By:** {shape.get('created_by', 'N/A')}")
+        st.write(f"**Updated By:** {shape.get('updated_by', 'N/A')}")
+
+        updated_at = shape.get("updated_at")
+        if updated_at:
+            st.write(f"**Updated At:** {updated_at.strftime('%d/%m/%Y %H:%M')}")
+
+    if description:
+        st.markdown("---")
+        st.write(f"**Description:** {description}")
+
+    if image_path and os.path.exists(image_path):
+        st.markdown("---")
+        st.markdown("**Shape Image**")
+        st.image(image_path, width=350)
+
+    st.markdown("---")
+
+    render_outputs_formula_table(outputs)
+    render_abbreviations_for_outputs(outputs)
 
     st.markdown("---")
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        if st.button("Edit Formula", use_container_width=True):
+        if st.button("Edit", use_container_width=True):
             st.session_state.admin_shape_mode = "edit"
+            st.session_state.admin_general_shape_category = category
             st.rerun()
 
     with col2:
         if shape.get("is_active", True):
-            if st.button("Deactivate Shape", use_container_width=True):
+            if st.button("Deactivate", use_container_width=True):
                 deactivate_global_shape(str(shape["_id"]))
                 st.success("Shape deactivated.")
                 st.rerun()
         else:
-            if st.button("Reactivate Shape", use_container_width=True):
+            if st.button("Reactivate", use_container_width=True):
                 reactivate_global_shape(str(shape["_id"]))
                 st.success("Shape reactivated.")
                 st.rerun()
@@ -227,9 +425,9 @@ def admin_view_shape_formula():
             st.rerun()
 
 def admin_add_shape_form(category="beam"):
-    st.subheader("Add Beam Shape")
+    st.subheader(f"Add {get_general_shape_category_label(category)} Shape")
 
-    with st.form("admin_add_shape_form"):
+    with st.form(f"admin_add_shape_form_{category}"):
         shape_name = st.text_input("Shape Name")
         description = st.text_area("Description")
 
