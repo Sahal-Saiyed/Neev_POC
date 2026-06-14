@@ -187,6 +187,8 @@ def logout():
     st.session_state.selected_admin_user_id = None
     st.session_state.selected_admin_shape_id = None
     st.session_state.show_admin_add_shape_form = False
+    st.session_state.admin_general_shape_category = "beam"
+    
     st.session_state.admin_custom_shape_mode = "list"
     st.session_state.selected_admin_custom_item_id = None
     st.session_state.selected_ai_request_id = None

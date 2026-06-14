@@ -74,23 +74,6 @@ def admin_shape_formula_management_page():
         admin_custom_shapes_tab()
 
 def admin_general_shapes_tab():
-    tab_beam, tab_slab, tab_column, tab_footing = st.tabs(
-        ["Beam", "Slab", "Column / SW", "Footing / Raft"]
-    )
-
-    with tab_beam:
-        admin_beam_shape_tab()
-
-    with tab_slab:
-        st.info("Slab shape management will be developed later.")
-
-    with tab_column:
-        st.info("Column / SW shape management will be developed later.")
-
-    with tab_footing:
-        st.info("Footing / Raft shape management will be developed later.")
-
-def admin_general_shapes_tab():
     mode = st.session_state.admin_shape_mode
 
     if mode == "list":
@@ -302,105 +285,6 @@ def validate_output_rows(output_rows: list):
         })
 
     return True, "", cleaned_outputs
-
-def admin_beam_shape_tab():
-    mode = st.session_state.admin_shape_mode
-
-    if mode == "list":
-        admin_beam_shape_list()
-
-    elif mode == "add":
-        admin_add_shape_form(category="beam")
-
-    elif mode == "view":
-        admin_view_shape_formula()
-
-    elif mode == "edit":
-        admin_edit_shape_form()
-
-def admin_beam_shape_list():
-    header_col1, header_col2 = st.columns([3, 1])
-
-    with header_col1:
-        st.subheader("Beam Shape")
-
-    with header_col2:
-        if st.button("+ Add Beam Shape", use_container_width=True):
-            st.session_state.admin_shape_mode = "add"
-            st.session_state.selected_admin_shape_id = None
-            st.rerun()
-
-    st.markdown("---")
-
-    search_text = st.text_input(
-        "Search Shape",
-        placeholder="Search beam shape",
-        label_visibility="collapsed"
-    )
-
-    shapes = list_shapes(
-        category="beam",
-        search_text=search_text
-    )
-
-    if not shapes:
-        st.info("No beam shapes found.")
-        return
-
-    header_cols = st.columns([3, 1, 1, 1])
-
-    header_cols[0].markdown("**Name**")
-    header_cols[1].markdown("**Size**")
-    header_cols[2].markdown("**Formula**")
-    header_cols[3].markdown("**Action**")
-
-    st.markdown("---")
-
-    for shape in shapes:
-        row_cols = st.columns([3, 1, 1, 1])
-
-        with row_cols[0]:
-            img_col, text_col = st.columns([1.3, 2])
-
-            with img_col:
-                image_path = shape.get("image_path")
-                if image_path and os.path.exists(image_path):
-                    st.image(image_path, width=180)
-                else:
-                    st.caption("No image")
-
-            with text_col:
-                st.write(f"**{shape.get('shape_name', 'Untitled Shape')}**")
-
-                if shape.get("is_active", True):
-                    st.success("Active")
-                else:
-                    st.warning("Inactive")
-
-        with row_cols[1]:
-            st.write(len(shape.get("outputs", [])))
-
-        with row_cols[2]:
-            if st.button(
-                "Formula",
-                key=f"view_formula_{shape['_id']}",
-                use_container_width=True
-            ):
-                st.session_state.selected_admin_shape_id = str(shape["_id"])
-                st.session_state.admin_shape_mode = "view"
-                st.rerun()
-
-        with row_cols[3]:
-            if st.button(
-                "Edit",
-                key=f"edit_shape_{shape['_id']}",
-                use_container_width=True
-            ):
-                st.session_state.selected_admin_shape_id = str(shape["_id"])
-                st.session_state.admin_shape_mode = "edit"
-                st.rerun()
-
-        st.markdown("---")
 
 def get_selected_admin_shape():
     return get_shape_by_id(st.session_state.selected_admin_shape_id)
