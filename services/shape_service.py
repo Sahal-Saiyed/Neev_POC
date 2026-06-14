@@ -1,8 +1,11 @@
 import os
 from datetime import datetime
 from bson.objectid import ObjectId
-
-from db import shape_library_collection, custom_shape_library_collection
+from db import (
+    shape_library_collection,
+    custom_shape_library_collection,
+    ai_requests_collection
+)
 from shape_resolver import (
     get_available_shapes_for_project,
     resolve_shape_for_project,
@@ -265,4 +268,313 @@ def approve_new_shape_request_to_project(request: dict, admin_email: str):
         outputs=outputs,
         created_by=admin_email,
         ai_request_id=str(request["_id"])
+    )
+
+def get_customization_type_label(custom_type: str):
+    labels = {
+        "formula_override": "Custom Formula",
+        "custom_shape": "Custom Shape"
+    }
+
+    return labels.get(custom_type, custom_type or "Customization")
+
+
+def get_custom_item_outputs(custom_item: dict):
+    if custom_item.get("type") == "formula_override":
+        return custom_item.get("override_outputs", [])
+
+    if custom_item.get("type") == "custom_shape":
+        return custom_item.get("outputs", [])
+
+    return []
+
+
+def get_custom_item_shape_name(custom_item: dict):
+    if custom_item.get("type") == "formula_override":
+        return custom_item.get("base_shape_name", "N/A")
+
+    if custom_item.get("type") == "custom_shape":
+        return custom_item.get("shape_name", "N/A")
+
+    return "N/A"
+
+
+def get_custom_item_description(custom_item: dict):
+    if custom_item.get("type") == "custom_shape":
+        return custom_item.get("description", "")
+
+    if custom_item.get("type") == "formula_override":
+        return (
+            f"Project-specific formula override for "
+            f"{custom_item.get('base_shape_name', 'selected shape')}."
+        )
+
+    return ""
+
+
+def _get_ai_request_for_custom_item(custom_item: dict):
+    request_id = custom_item.get("ai_request_id")
+
+    if not request_id and custom_item.get("type") == "formula_override":
+        override_outputs = custom_item.get("override_outputs", [])
+
+        for output in reversed(override_outputs):
+            if output.get("ai_request_id"):
+                request_id = output.get("ai_request_id")
+                break
+
+    if not request_id:
+        return None
+
+    try:
+        return ai_requests_collection.find_one({"_id": ObjectId(str(request_id))})
+    except Exception:
+        return None
+
+
+def _fallback_request_code(request_id):
+    if not request_id:
+        return "N/A"
+
+    return f"AIR-{str(request_id)[-6:].upper()}"
+
+
+def enrich_custom_item(custom_item: dict):
+    enriched_item = dict(custom_item)
+
+    request = _get_ai_request_for_custom_item(custom_item)
+
+    request_id = None
+
+    if custom_item.get("ai_request_id"):
+        request_id = custom_item.get("ai_request_id")
+
+    if not request_id and custom_item.get("type") == "formula_override":
+        for output in reversed(custom_item.get("override_outputs", [])):
+            if output.get("ai_request_id"):
+                request_id = output.get("ai_request_id")
+                break
+
+    if request:
+        enriched_item["request_code"] = request.get(
+            "request_code",
+            _fallback_request_code(request.get("_id"))
+        )
+        enriched_item["requested_by_name"] = request.get("requested_by_name", "N/A")
+        enriched_item["requested_by"] = request.get("requested_by", "N/A")
+        enriched_item["request_reason"] = request.get("reason", "N/A")
+    else:
+        enriched_item["request_code"] = _fallback_request_code(request_id)
+        enriched_item["requested_by_name"] = "N/A"
+        enriched_item["requested_by"] = "N/A"
+        enriched_item["request_reason"] = "N/A"
+
+    enriched_item["customization_type_label"] = get_customization_type_label(
+        custom_item.get("type")
+    )
+    enriched_item["display_shape_name"] = get_custom_item_shape_name(custom_item)
+    enriched_item["display_description"] = get_custom_item_description(custom_item)
+    enriched_item["display_outputs"] = get_custom_item_outputs(custom_item)
+
+    image_path = custom_item.get("image_path")
+
+    if custom_item.get("type") == "formula_override":
+        base_shape_id = custom_item.get("base_shape_id")
+
+        if base_shape_id:
+            try:
+                base_shape = shape_library_collection.find_one({
+                    "_id": ObjectId(str(base_shape_id))
+                })
+
+                if base_shape:
+                    image_path = base_shape.get("image_path")
+            except Exception:
+                image_path = None
+
+    enriched_item["display_image_path"] = image_path
+
+    return enriched_item
+
+
+def list_custom_shape_library_items(
+    category: str = "beam",
+    search_text: str = "",
+    status_filter: str = "All"
+):
+    query = {}
+
+    if category:
+        query["category"] = category
+
+    if status_filter == "Active":
+        query["is_active"] = True
+    elif status_filter == "Inactive":
+        query["is_active"] = False
+
+    if search_text:
+        query["$or"] = [
+            {"project_name": {"$regex": search_text, "$options": "i"}},
+            {"shape_name": {"$regex": search_text, "$options": "i"}},
+            {"base_shape_name": {"$regex": search_text, "$options": "i"}}
+        ]
+
+    items = list(
+        custom_shape_library_collection.find(query)
+        .sort("updated_at", -1)
+    )
+
+    return [enrich_custom_item(item) for item in items]
+
+
+def get_custom_shape_library_item_by_id(custom_item_id: str):
+    if not custom_item_id:
+        return None
+
+    try:
+        item = custom_shape_library_collection.find_one({
+            "_id": ObjectId(custom_item_id)
+        })
+
+        if not item:
+            return None
+
+        return enrich_custom_item(item)
+
+    except Exception:
+        return None
+
+
+def deactivate_custom_shape_library_item(custom_item_id: str, admin_email: str):
+    return custom_shape_library_collection.update_one(
+        {"_id": ObjectId(str(custom_item_id))},
+        {
+            "$set": {
+                "is_active": False,
+                "updated_by": admin_email,
+                "updated_at": datetime.now()
+            }
+        }
+    )
+
+
+def reactivate_custom_shape_library_item(custom_item_id: str, admin_email: str):
+    return custom_shape_library_collection.update_one(
+        {"_id": ObjectId(str(custom_item_id))},
+        {
+            "$set": {
+                "is_active": True,
+                "updated_by": admin_email,
+                "updated_at": datetime.now()
+            }
+        }
+    )
+
+def update_custom_formula_override(
+    custom_item_id: str,
+    override_outputs: list,
+    is_active: bool,
+    admin_email: str
+):
+    cleaned_outputs = []
+
+    existing_item = custom_shape_library_collection.find_one({
+        "_id": ObjectId(str(custom_item_id)),
+        "type": "formula_override"
+    })
+
+    if not existing_item:
+        raise ValueError("Custom formula override not found.")
+
+    old_outputs_by_name = {}
+
+    for old_output in existing_item.get("override_outputs", []):
+        old_outputs_by_name[old_output.get("output_name", "").lower()] = old_output
+
+    for output in override_outputs:
+        output_name = output.get("output_name", "").strip()
+        formula = output.get("formula", "").strip()
+        unit = output.get("unit", "m").strip() or "m"
+
+        if not output_name or not formula:
+            raise ValueError("Each output must have output name and formula.")
+
+        old_output = old_outputs_by_name.get(output_name.lower(), {})
+
+        cleaned_outputs.append({
+            "output_name": output_name,
+            "formula": formula,
+            "unit": unit,
+            "source": "manual_admin_edit",
+            "ai_request_id": old_output.get("ai_request_id"),
+            "updated_by": admin_email,
+            "updated_at": datetime.now()
+        })
+
+    return custom_shape_library_collection.update_one(
+        {"_id": ObjectId(str(custom_item_id))},
+        {
+            "$set": {
+                "override_outputs": cleaned_outputs,
+                "is_active": is_active,
+                "updated_by": admin_email,
+                "updated_at": datetime.now()
+            }
+        }
+    )
+
+
+def find_duplicate_project_custom_shape(
+    custom_item_id: str,
+    project_id: str,
+    shape_name: str,
+    category: str
+):
+    return custom_shape_library_collection.find_one({
+        "_id": {"$ne": ObjectId(str(custom_item_id))},
+        "project_id": project_id,
+        "category": category,
+        "type": "custom_shape",
+        "shape_name": shape_name
+    })
+
+
+def update_project_custom_shape(
+    custom_item_id: str,
+    shape_name: str,
+    description: str,
+    image_path: str,
+    outputs: list,
+    is_active: bool,
+    admin_email: str
+):
+    cleaned_outputs = []
+
+    for output in outputs:
+        output_name = output.get("output_name", "").strip()
+        formula = output.get("formula", "").strip()
+        unit = output.get("unit", "m").strip() or "m"
+
+        if not output_name or not formula:
+            raise ValueError("Each output must have output name and formula.")
+
+        cleaned_outputs.append({
+            "output_name": output_name,
+            "formula": formula,
+            "unit": unit
+        })
+
+    return custom_shape_library_collection.update_one(
+        {"_id": ObjectId(str(custom_item_id))},
+        {
+            "$set": {
+                "shape_name": shape_name,
+                "description": description,
+                "image_path": image_path,
+                "outputs": cleaned_outputs,
+                "is_active": is_active,
+                "updated_by": admin_email,
+                "updated_at": datetime.now()
+            }
+        }
     )

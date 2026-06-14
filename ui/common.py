@@ -56,43 +56,6 @@ def get_selected_autocad_import():
         st.session_state.selected_autocad_import_id
     )
 
-# Logout function
-
-def logout():
-    st.session_state.logged_in = False
-    st.session_state.user_id = None
-    st.session_state.name = None
-    st.session_state.email = None
-    st.session_state.role = None
-
-    st.session_state.current_page = "dashboard"
-    st.session_state.selected_project_id = None
-    st.session_state.project_subpage = "project_dashboard"
-    st.session_state.selected_block_id = None
-
-    st.session_state.show_new_autocad_import_form = False
-    st.session_state.selected_autocad_import_id = None
-
-    st.session_state.show_new_block_form = False
-    st.session_state.show_new_floor_form = False
-
-    st.session_state.show_new_beam_form = False
-    st.session_state.selected_beam_id = None
-
-    st.session_state.admin_current_page = "admin_dashboard"
-    st.session_state.selected_admin_user_id = None
-    st.session_state.selected_admin_shape_id = None
-    st.session_state.show_admin_add_shape_form = False
-    st.session_state.selected_ai_request_id = None
-
-    st.session_state.ai_chat_display_messages = []
-    st.session_state.ai_agent_conversation_messages = []
-    st.session_state.ai_current_structured_data = {}
-    st.session_state.ai_latest_agent_response = None
-
-    st.success("Logged out successfully.")
-    st.rerun()
-
 def get_selected_project():
     return get_project_by_id(st.session_state.selected_project_id)
 
@@ -197,3 +160,41 @@ def render_new_shape_request_details(request: dict):
     render_outputs_formula_table(outputs)
     render_abbreviations_for_outputs(outputs)
 
+# Logout function
+
+def logout():
+    st.session_state.logged_in = False
+    st.session_state.user_id = None
+    st.session_state.name = None
+    st.session_state.email = None
+    st.session_state.role = None
+
+    st.session_state.current_page = "dashboard"
+    st.session_state.selected_project_id = None
+    st.session_state.project_subpage = "project_dashboard"
+    st.session_state.selected_block_id = None
+
+    st.session_state.show_new_autocad_import_form = False
+    st.session_state.selected_autocad_import_id = None
+
+    st.session_state.show_new_block_form = False
+    st.session_state.show_new_floor_form = False
+
+    st.session_state.show_new_beam_form = False
+    st.session_state.selected_beam_id = None
+
+    st.session_state.admin_current_page = "admin_dashboard"
+    st.session_state.selected_admin_user_id = None
+    st.session_state.selected_admin_shape_id = None
+    st.session_state.show_admin_add_shape_form = False
+    st.session_state.admin_custom_shape_mode = "list"
+    st.session_state.selected_admin_custom_item_id = None
+    st.session_state.selected_ai_request_id = None
+
+    st.session_state.ai_chat_display_messages = []
+    st.session_state.ai_agent_conversation_messages = []
+    st.session_state.ai_current_structured_data = {}
+    st.session_state.ai_latest_agent_response = None
+
+    st.success("Logged out successfully.")
+    st.rerun()

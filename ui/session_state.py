@@ -66,6 +66,12 @@ def init_session_state():
     if "admin_shape_mode" not in st.session_state:
         st.session_state.admin_shape_mode = "list"
 
+    if "admin_custom_shape_mode" not in st.session_state:
+        st.session_state.admin_custom_shape_mode = "list"
+
+    if "selected_admin_custom_item_id" not in st.session_state:
+        st.session_state.selected_admin_custom_item_id = None
+
     if "selected_ai_request_id" not in st.session_state:
         st.session_state.selected_ai_request_id = None
 
