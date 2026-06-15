@@ -20,7 +20,10 @@ from services.shape_service import (
     resolve_project_shape
 )
 
-from ui.common import get_selected_autocad_import
+from ui.common import (
+    get_selected_autocad_import,
+    render_shape_image
+)
 
 def beam_tab(project, import_item):
     st.markdown("### Beam")
@@ -52,6 +55,7 @@ def beam_tab(project, import_item):
     st.markdown("---")
 
     show_beams(project, import_item, search_text, status_filter)
+
 
 def new_beam_form(project, import_item):
     st.subheader("Add Beam")
@@ -100,6 +104,7 @@ def new_beam_form(project, import_item):
         st.success("Beam created successfully.")
         st.rerun()
 
+
 def show_beams(project, import_item, search_text="", status_filter="All"):
     beams = list_beams(
         project_id=str(project["_id"]),
@@ -144,6 +149,7 @@ def show_beams(project, import_item, search_text="", status_filter="All"):
                 st.rerun()
 
         st.markdown("---")
+
 
 def get_selected_beam():
     return get_beam_by_id(st.session_state.selected_beam_id)
@@ -246,14 +252,14 @@ def beam_input_calculation_form(project, import_item, beam):
     st.subheader(selected_shape.get("shape_name", "Shape"))
 
     image_path = selected_shape.get("image_path")
+    image_file_id = selected_shape.get("image_file_id")
 
-    if image_path:
-        try:
-            st.image(image_path, width=350)
-        except Exception:
-            st.warning(f"Image not found at path: {image_path}")
-    else:
-        st.info("No image available for this shape.")
+    render_shape_image(
+        image_file_id=image_file_id,
+        image_path=image_path,
+        width=350,
+        missing_message="No image available for this shape."
+    )
 
     st.markdown("---")
 

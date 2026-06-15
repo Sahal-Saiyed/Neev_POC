@@ -822,11 +822,16 @@ def admin_view_custom_item():
 
     if custom_item.get("type") == "custom_shape":
         image_path = custom_item.get("image_path")
+        image_file_id = custom_item.get("display_image_file_id") or custom_item.get("image_file_id")
 
-        if image_path and os.path.exists(image_path):
+        if image_file_id or image_path:
             st.markdown("---")
             st.markdown("**Shape Image**")
-            st.image(image_path, width=350)
+            render_shape_image(
+                image_file_id=image_file_id,
+                image_path=image_path,
+                width=350
+            )
 
     st.markdown("---")
 
