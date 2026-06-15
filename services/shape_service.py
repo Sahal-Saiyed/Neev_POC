@@ -212,13 +212,23 @@ def create_shape(
     description: str,
     image_path: str,
     outputs: list,
-    created_by: str
+    created_by: str,
+    image_file_id: str = None,
+    image_filename: str = None,
+    image_mime_type: str = None,
+    image_storage: str = None
 ):
     shape_data = {
         "shape_name": shape_name,
         "category": category,
         "description": description,
+
         "image_path": image_path,
+        "image_file_id": image_file_id,
+        "image_filename": image_filename,
+        "image_mime_type": image_mime_type,
+        "image_storage": image_storage,
+
         "outputs": outputs,
         "is_active": True,
         "created_by": created_by,
@@ -235,12 +245,22 @@ def update_shape(
     image_path: str,
     outputs: list,
     is_active: bool,
-    updated_by: str
+    updated_by: str,
+    image_file_id: str = None,
+    image_filename: str = None,
+    image_mime_type: str = None,
+    image_storage: str = None
 ):
     update_data = {
         "shape_name": shape_name,
         "description": description,
+
         "image_path": image_path,
+        "image_file_id": image_file_id,
+        "image_filename": image_filename,
+        "image_mime_type": image_mime_type,
+        "image_storage": image_storage,
+
         "outputs": outputs,
         "is_active": is_active,
         "updated_by": updated_by
@@ -602,7 +622,11 @@ def update_project_custom_shape(
     image_path: str,
     outputs: list,
     is_active: bool,
-    admin_email: str
+    admin_email: str,
+    image_file_id: str = None,
+    image_filename: str = None,
+    image_mime_type: str = None,
+    image_storage: str = None
 ):
     cleaned_outputs = []
 
@@ -626,7 +650,13 @@ def update_project_custom_shape(
             "$set": {
                 "shape_name": shape_name,
                 "description": description,
+
                 "image_path": image_path,
+                "image_file_id": image_file_id,
+                "image_filename": image_filename,
+                "image_mime_type": image_mime_type,
+                "image_storage": image_storage,
+
                 "outputs": cleaned_outputs,
                 "is_active": is_active,
                 "updated_by": admin_email,

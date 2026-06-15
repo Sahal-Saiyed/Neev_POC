@@ -10,7 +10,6 @@ from services.shape_service import (
     update_shape,
     deactivate_global_shape,
     reactivate_global_shape,
-    save_uploaded_shape_image,
     list_custom_shape_library_items,
     get_custom_shape_library_item_by_id,
     deactivate_custom_shape_library_item,
@@ -19,6 +18,7 @@ from services.shape_service import (
     find_duplicate_project_custom_shape,
     update_project_custom_shape
 )
+from services.image_service import save_uploaded_image_to_mongodb
 
 from ui.common import (
     render_outputs_formula_table,
@@ -57,6 +57,7 @@ def get_general_shape_category_label(category: str):
 
     return category.title()
 
+
 def admin_shape_formula_management_page():
     st.title("Shape & Formula Management")
     st.caption("Home • Master Data • Shapes & Formulas")
@@ -73,6 +74,7 @@ def admin_shape_formula_management_page():
 
     with custom_tab:
         admin_custom_shapes_tab()
+
 
 def admin_general_shapes_tab():
     mode = st.session_state.admin_shape_mode
@@ -116,6 +118,7 @@ def admin_general_shapes_tab():
 
     elif mode == "edit":
         admin_edit_shape_form()
+
 
 def admin_general_shape_category_list(category: str, title: str):
     header_col1, header_col2 = st.columns([3, 1])
@@ -295,8 +298,10 @@ def validate_output_rows(output_rows: list):
 
     return True, "", cleaned_outputs
 
+
 def get_selected_admin_shape():
     return get_shape_by_id(st.session_state.selected_admin_shape_id)
+
 
 def admin_view_shape_formula():
     shape = get_selected_admin_shape()
@@ -384,6 +389,7 @@ def admin_view_shape_formula():
             st.session_state.selected_admin_shape_id = None
             st.rerun()
 
+
 def admin_add_shape_form(category="beam"):
     category_label = get_general_shape_category_label(category)
 
@@ -459,13 +465,24 @@ def admin_add_shape_form(category="beam"):
             return
 
         image_path = None
+        image_file_id = None
+        image_filename = None
+        image_mime_type = None
+        image_storage = None
 
         if uploaded_image is not None:
-            image_path = save_uploaded_shape_image(
+            image_metadata = save_uploaded_image_to_mongodb(
                 uploaded_file=uploaded_image,
                 shape_name=shape_name,
-                category=category
+                category=category,
+                uploaded_by=st.session_state.email,
+                source="admin_general_shape_upload"
             )
+
+            image_file_id = image_metadata.get("image_file_id")
+            image_filename = image_metadata.get("image_filename")
+            image_mime_type = image_metadata.get("image_mime_type")
+            image_storage = image_metadata.get("image_storage")
 
         create_shape(
             shape_name=shape_name,
@@ -473,12 +490,17 @@ def admin_add_shape_form(category="beam"):
             description=description,
             image_path=image_path,
             outputs=cleaned_outputs,
-            created_by=st.session_state.email
+            created_by=st.session_state.email,
+            image_file_id=image_file_id,
+            image_filename=image_filename,
+            image_mime_type=image_mime_type,
+            image_storage=image_storage
         )
 
         st.success(f"{category_label} shape added successfully.")
         st.session_state.admin_shape_mode = "list"
         st.rerun()
+
 
 def admin_edit_shape_form():
     shape = get_selected_admin_shape()
@@ -498,6 +520,9 @@ def admin_edit_shape_form():
     category_label = get_general_shape_category_label(category)
     old_image_path = shape.get("image_path")
     old_image_file_id = shape.get("image_file_id")
+    old_image_filename = shape.get("image_filename")
+    old_image_mime_type = shape.get("image_mime_type")
+    old_image_storage = shape.get("image_storage")
     old_outputs = shape.get("outputs", [])
 
     st.subheader(f"Edit {category_label} Shape")
@@ -586,13 +611,25 @@ def admin_edit_shape_form():
             return
 
         image_path = old_image_path
+        image_file_id = old_image_file_id
+        image_filename = old_image_filename
+        image_mime_type = old_image_mime_type
+        image_storage = old_image_storage
 
         if uploaded_image is not None:
-            image_path = save_uploaded_shape_image(
+            image_metadata = save_uploaded_image_to_mongodb(
                 uploaded_file=uploaded_image,
                 shape_name=shape_name,
-                category=category
+                category=category,
+                uploaded_by=st.session_state.email,
+                source="admin_general_shape_edit"
             )
+
+            image_path = None
+            image_file_id = image_metadata.get("image_file_id")
+            image_filename = image_metadata.get("image_filename")
+            image_mime_type = image_metadata.get("image_mime_type")
+            image_storage = image_metadata.get("image_storage")
 
         update_shape(
             shape_id=shape_id,
@@ -601,12 +638,17 @@ def admin_edit_shape_form():
             image_path=image_path,
             outputs=cleaned_outputs,
             is_active=is_active,
-            updated_by=st.session_state.email
+            updated_by=st.session_state.email,
+            image_file_id=image_file_id,
+            image_filename=image_filename,
+            image_mime_type=image_mime_type,
+            image_storage=image_storage
         )
 
         st.success(f"{category_label} shape updated successfully.")
         st.session_state.admin_shape_mode = "view"
         st.rerun()
+
 
 def admin_custom_shapes_tab():
     mode = st.session_state.admin_custom_shape_mode
@@ -953,6 +995,9 @@ def admin_edit_custom_shape_form(custom_item: dict):
 
     image_path = custom_item.get("image_path")
     image_file_id = custom_item.get("image_file_id")
+    image_filename = custom_item.get("image_filename")
+    image_mime_type = custom_item.get("image_mime_type")
+    image_storage = custom_item.get("image_storage")
 
     if image_file_id or image_path:
         st.markdown("**Current Shape Image**")
@@ -1064,13 +1109,25 @@ def admin_edit_custom_shape_form(custom_item: dict):
             return
 
         new_image_path = image_path
+        new_image_file_id = image_file_id
+        new_image_filename = image_filename
+        new_image_mime_type = image_mime_type
+        new_image_storage = image_storage
 
         if uploaded_image is not None:
-            new_image_path = save_uploaded_shape_image(
+            image_metadata = save_uploaded_image_to_mongodb(
                 uploaded_file=uploaded_image,
                 shape_name=shape_name,
-                category=custom_item.get("category", "beam")
+                category=custom_item.get("category", "beam"),
+                uploaded_by=st.session_state.email,
+                source="admin_custom_shape_edit"
             )
+
+            new_image_path = None
+            new_image_file_id = image_metadata.get("image_file_id")
+            new_image_filename = image_metadata.get("image_filename")
+            new_image_mime_type = image_metadata.get("image_mime_type")
+            new_image_storage = image_metadata.get("image_storage")
 
         try:
             update_project_custom_shape(
@@ -1080,7 +1137,11 @@ def admin_edit_custom_shape_form(custom_item: dict):
                 image_path=new_image_path,
                 outputs=output_rows,
                 is_active=is_active,
-                admin_email=st.session_state.email
+                admin_email=st.session_state.email,
+                image_file_id=new_image_file_id,
+                image_filename=new_image_filename,
+                image_mime_type=new_image_mime_type,
+                image_storage=new_image_storage
             )
 
             st.success("Custom shape updated successfully.")
