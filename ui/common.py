@@ -1,16 +1,20 @@
+import os
 import streamlit as st
 from abbreviation_tool import extract_abbreviations_from_formula
 from services.project_service import get_project_by_id
 from services.autocad_service import get_autocad_import_by_id
+from services.image_service import get_mongodb_image_bytes
 
 # Placeholder pages for undeveloped user and admin pages
 def placeholder_page(title):
     st.title(title)
     st.info(f"{title} page will be developed later.")
 
+
 def admin_placeholder_page(title):
     st.title(title)
     st.info(f"{title} page will be developed later.")
+
 
 # Request identifier code
 def get_ai_request_code(request):
@@ -18,6 +22,7 @@ def get_ai_request_code(request):
         return request.get("request_code")
 
     return f"AIR-{str(request.get('_id'))[-6:].upper()}"
+
 
 # Formula abbreviation container
 def render_formula_abbreviations(formula: str):
@@ -44,6 +49,7 @@ def render_formula_abbreviations(formula: str):
             height=min(180, 38 * (len(table_data) + 1))
         )
 
+
 # AI state reset
 def reset_ai_assistant_state():
     st.session_state.ai_chat_display_messages = []
@@ -51,10 +57,12 @@ def reset_ai_assistant_state():
     st.session_state.ai_current_structured_data = {}
     st.session_state.ai_latest_agent_response = None
 
+
 def get_selected_autocad_import():
     return get_autocad_import_by_id(
         st.session_state.selected_autocad_import_id
     )
+
 
 def get_selected_project():
     return get_project_by_id(st.session_state.selected_project_id)
@@ -136,7 +144,17 @@ def render_abbreviations_for_outputs(outputs: list):
 def render_new_shape_request_details(request: dict):
     payload = request.get("new_shape_payload", {}) or {}
 
-    image_path = payload.get("image_path") or request.get("new_shape_image_path")
+    image_file_id = (
+            payload.get("image_file_id")
+            or request.get("new_shape_image_file_id")
+            or request.get("image_file_id")
+    )
+
+    image_path = (
+            payload.get("image_path")
+            or request.get("new_shape_image_path")
+            or request.get("image_path")
+    )
     outputs = payload.get("outputs", []) or []
 
     info_col1, info_col2 = st.columns(2)
@@ -153,12 +171,59 @@ def render_new_shape_request_details(request: dict):
         st.write(f"**Description:** {payload.get('description', 'N/A')}")
         st.write(f"**Reason:** {request.get('reason', 'N/A')}")
 
-    if image_path:
+    if image_file_id or image_path:
         st.markdown("**Shape Image**")
-        st.image(image_path, width=350)
+        render_shape_image(
+            image_file_id=image_file_id,
+            image_path=image_path,
+            width=350
+        )
 
     render_outputs_formula_table(outputs)
     render_abbreviations_for_outputs(outputs)
+
+
+def render_shape_image(
+    image_file_id=None,
+    image_path=None,
+    width=350,
+    use_container_width=False,
+    missing_message="Image is not available on this deployment."
+):
+    """
+    Renders shape image safely.
+
+    Priority:
+    1. MongoDB GridFS image_file_id
+    2. Local image_path if file exists
+    3. Safe fallback message
+
+    Returns True if image was rendered, False otherwise.
+    """
+
+    image_bytes = get_mongodb_image_bytes(image_file_id)
+
+    if image_bytes:
+        if use_container_width:
+            st.image(image_bytes, use_container_width=True)
+        else:
+            st.image(image_bytes, width=width)
+
+        return True
+
+    if image_path and os.path.exists(image_path):
+        if use_container_width:
+            st.image(image_path, use_container_width=True)
+        else:
+            st.image(image_path, width=width)
+
+        return True
+
+    if missing_message:
+        st.info(missing_message)
+
+    return False
+
 
 # Logout function
 
