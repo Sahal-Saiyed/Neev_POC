@@ -309,6 +309,7 @@ def approve_new_shape_request_to_project(request: dict, admin_email: str):
         image_storage=image_storage
     )
 
+
 def get_customization_type_label(custom_type: str):
     labels = {
         "formula_override": "Custom Formula",
@@ -416,6 +417,10 @@ def enrich_custom_item(custom_item: dict):
     enriched_item["display_outputs"] = get_custom_item_outputs(custom_item)
 
     image_path = custom_item.get("image_path")
+    image_file_id = custom_item.get("image_file_id")
+    image_filename = custom_item.get("image_filename")
+    image_mime_type = custom_item.get("image_mime_type")
+    image_storage = custom_item.get("image_storage")
 
     if custom_item.get("type") == "formula_override":
         base_shape_id = custom_item.get("base_shape_id")
@@ -428,10 +433,22 @@ def enrich_custom_item(custom_item: dict):
 
                 if base_shape:
                     image_path = base_shape.get("image_path")
+                    image_file_id = base_shape.get("image_file_id")
+                    image_filename = base_shape.get("image_filename")
+                    image_mime_type = base_shape.get("image_mime_type")
+                    image_storage = base_shape.get("image_storage")
             except Exception:
                 image_path = None
+                image_file_id = None
+                image_filename = None
+                image_mime_type = None
+                image_storage = None
 
     enriched_item["display_image_path"] = image_path
+    enriched_item["display_image_file_id"] = image_file_id
+    enriched_item["display_image_filename"] = image_filename
+    enriched_item["display_image_mime_type"] = image_mime_type
+    enriched_item["display_image_storage"] = image_storage
 
     return enriched_item
 

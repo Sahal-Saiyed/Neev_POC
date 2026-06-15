@@ -22,7 +22,8 @@ from services.shape_service import (
 
 from ui.common import (
     render_outputs_formula_table,
-    render_abbreviations_for_outputs
+    render_abbreviations_for_outputs,
+    render_shape_image
 )
 
 GENERAL_SHAPE_CATEGORIES = [
@@ -163,6 +164,7 @@ def admin_general_shape_category_list(category: str, title: str):
     for shape in shapes:
         render_general_shape_card(shape)
 
+
 def render_general_shape_card(shape: dict):
     shape_id = str(shape["_id"])
     shape_name = shape.get("shape_name", "Untitled Shape")
@@ -170,15 +172,21 @@ def render_general_shape_card(shape: dict):
     category = shape.get("category", "beam")
     outputs = shape.get("outputs", [])
     image_path = shape.get("image_path")
+    image_file_id = shape.get("image_file_id")
     status = "Active" if shape.get("is_active", True) else "Inactive"
 
     with st.container(border=True):
         image_col, info_col, formula_col, action_col = st.columns([3, 3, 3, 1])
 
         with image_col:
-            if image_path and os.path.exists(image_path):
-                st.image(image_path, use_container_width=True)
-            else:
+            image_rendered = render_shape_image(
+                image_file_id=image_file_id,
+                image_path=image_path,
+                use_container_width=True,
+                missing_message=None
+            )
+
+            if not image_rendered:
                 st.caption("No image")
 
         with info_col:
@@ -223,6 +231,7 @@ def render_general_shape_card(shape: dict):
                 st.session_state.admin_shape_mode = "edit"
                 st.session_state.admin_general_shape_category = category
                 st.rerun()
+
 
 def build_output_rows_from_form(output_count: int, existing_outputs: list, key_prefix: str):
     output_rows = []
@@ -306,6 +315,7 @@ def admin_view_shape_formula():
     category = shape.get("category", "beam")
     description = shape.get("description", "")
     image_path = shape.get("image_path")
+    image_file_id = shape.get("image_file_id")
     outputs = shape.get("outputs", [])
 
     st.subheader(shape_name)
@@ -332,10 +342,14 @@ def admin_view_shape_formula():
         st.markdown("---")
         st.write(f"**Description:** {description}")
 
-    if image_path and os.path.exists(image_path):
+    if image_file_id or image_path:
         st.markdown("---")
         st.markdown("**Shape Image**")
-        st.image(image_path, width=350)
+        render_shape_image(
+            image_file_id=image_file_id,
+            image_path=image_path,
+            width=350
+        )
 
     st.markdown("---")
 
@@ -483,6 +497,7 @@ def admin_edit_shape_form():
     category = shape.get("category", "beam")
     category_label = get_general_shape_category_label(category)
     old_image_path = shape.get("image_path")
+    old_image_file_id = shape.get("image_file_id")
     old_outputs = shape.get("outputs", [])
 
     st.subheader(f"Edit {category_label} Shape")
@@ -490,9 +505,13 @@ def admin_edit_shape_form():
 
     st.markdown("---")
 
-    if old_image_path and os.path.exists(old_image_path):
+    if old_image_file_id or old_image_path:
         st.markdown("**Current Shape Image**")
-        st.image(old_image_path, width=350)
+        render_shape_image(
+            image_file_id=old_image_file_id,
+            image_path=old_image_path,
+            width=350
+        )
 
     with st.form(f"admin_edit_shape_form_{shape_id}"):
         shape_name = st.text_input(
@@ -658,16 +677,20 @@ def render_custom_item_card(custom_item: dict):
     outputs = custom_item.get("display_outputs", [])
     status = "Active" if custom_item.get("is_active", True) else "Inactive"
     image_path = custom_item.get("display_image_path")
+    image_file_id = custom_item.get("display_image_file_id")
 
     with st.container(border=True):
         image_col, top_col1, top_col2, top_col3 = st.columns([1, 2, 2, 1])
+
         with image_col:
-            if image_path and os.path.exists(image_path):
-                st.image(
-                    image_path,
-                    use_container_width=True
-                )
-            else:
+            image_rendered = render_shape_image(
+                image_file_id=image_file_id,
+                image_path=image_path,
+                use_container_width=True,
+                missing_message=None
+            )
+
+            if not image_rendered:
                 st.caption("No image")
 
         with top_col1:
@@ -801,6 +824,7 @@ def admin_view_custom_item():
             st.session_state.selected_admin_custom_item_id = None
             st.rerun()
 
+
 def admin_edit_custom_item():
     custom_item = get_selected_admin_custom_item()
 
@@ -928,9 +952,15 @@ def admin_edit_custom_shape_form(custom_item: dict):
     st.write(f"**Requested By:** {custom_item.get('requested_by_name', 'N/A')}")
 
     image_path = custom_item.get("image_path")
+    image_file_id = custom_item.get("image_file_id")
 
-    if image_path and os.path.exists(image_path):
-        st.image(image_path, width=350)
+    if image_file_id or image_path:
+        st.markdown("**Current Shape Image**")
+        render_shape_image(
+            image_file_id=image_file_id,
+            image_path=image_path,
+            width=350
+        )
 
     st.markdown("---")
 
