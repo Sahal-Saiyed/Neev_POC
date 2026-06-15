@@ -2,6 +2,7 @@ import os
 import re
 from datetime import datetime
 from typing import Optional
+import mimetypes
 
 import gridfs
 from bson.objectid import ObjectId
@@ -186,4 +187,66 @@ def extract_image_metadata_from_document(document: dict):
         "image_mime_type": document.get("image_mime_type"),
         "image_storage": document.get("image_storage"),
         "image_path": document.get("image_path")
+    }
+
+
+def save_local_image_to_mongodb(
+    image_path: str,
+    category: str = "beam",
+    shape_name: str = "shape",
+    uploaded_by: Optional[str] = None,
+    source: str = "local_image_migration"
+):
+    """
+    Saves an existing local image file to MongoDB GridFS.
+
+    Used for migration from old image_path storage.
+    """
+
+    if not image_path or not os.path.exists(image_path):
+        return {
+            "image_file_id": None,
+            "image_filename": None,
+            "image_mime_type": None,
+            "image_storage": None
+        }
+
+    original_filename = os.path.basename(image_path)
+
+    mime_type, _ = mimetypes.guess_type(image_path)
+    mime_type = mime_type or "image/png"
+
+    safe_category = _safe_filename_part(category)
+    safe_shape_name = _safe_filename_part(shape_name)
+    extension = _get_file_extension(original_filename, mime_type)
+
+    filename = (
+        f"{safe_category}_{safe_shape_name}_migration_"
+        f"{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+        f"{extension}"
+    )
+
+    with open(image_path, "rb") as file:
+        file_bytes = file.read()
+
+    file_id = fs.put(
+        file_bytes,
+        filename=filename,
+        content_type=mime_type,
+        metadata={
+            "category": category,
+            "shape_name": shape_name,
+            "uploaded_by": uploaded_by,
+            "source": source,
+            "original_filename": original_filename,
+            "original_path": image_path,
+            "created_at": datetime.now()
+        }
+    )
+
+    return {
+        "image_file_id": str(file_id),
+        "image_filename": filename,
+        "image_mime_type": mime_type,
+        "image_storage": "mongodb_gridfs"
     }
