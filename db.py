@@ -1,10 +1,13 @@
 import os
 from pymongo import MongoClient
-from dotenv import load_dotenv
+from config import get_setting, require_setting
 
-load_dotenv()
+MONGO_URI = require_setting("MONGO_URI")
+DB_NAME = get_setting("DB_NAME", "BuniyadBytePOC")
 
-MONGO_URI = os.getenv("MONGO_URI")
+client = MongoClient(MONGO_URI)
+db = client[DB_NAME]
+
 
 if not MONGO_URI:
     raise Exception("MONGO_URI not found. Please add it in .env file.")

@@ -1,13 +1,19 @@
-import os
 import json
 import requests
-from dotenv import load_dotenv
+from config import get_setting, require_setting
 
-load_dotenv()
 
-LLM_API_KEY = os.getenv("LLM_API_KEY")
-LLM_BASE_URL = os.getenv("LLM_BASE_URL")
-LLM_MODEL = os.getenv("LLM_MODEL")
+LLM_API_KEY = require_setting("LLM_API_KEY")
+
+LLM_BASE_URL = get_setting(
+    "LLM_BASE_URL",
+    "https://openrouter.ai/api/v1/chat/completions"
+)
+
+LLM_MODEL = get_setting(
+    "LLM_MODEL",
+    "openai/gpt-4o-mini"
+)
 
 
 def call_llm(messages):
