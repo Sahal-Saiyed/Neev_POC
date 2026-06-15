@@ -1,19 +1,13 @@
 import os
 from pymongo import MongoClient
-from config import get_setting, require_setting
+from config import require_setting
 
 MONGO_URI = require_setting("MONGO_URI")
-DB_NAME = get_setting("DB_NAME", "BuniyadBytePOC")
-
-client = MongoClient(MONGO_URI)
-db = client[DB_NAME]
-
 
 if not MONGO_URI:
     raise Exception("MONGO_URI not found. Please add it in .env file.")
 
 client = MongoClient(MONGO_URI)
-
 db = client["ai_agent_poc"]
 
 users_collection = db["users"]
