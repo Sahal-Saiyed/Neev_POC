@@ -5,7 +5,7 @@ from agent.schemas import AIRequestCreate
 from agent.request_service import create_ai_request
 
 from services.ai_request_service import create_new_shape_request
-from services.shape_service import save_uploaded_shape_image
+from services.image_service import save_uploaded_image_to_mongodb
 
 from ui.common import (
     render_formula_abbreviations,
@@ -233,6 +233,8 @@ def ai_assistant_page():
             if st.button("Clear Chat"):
                 reset_ai_assistant_state()
                 st.rerun()
+
+
 def submit_ai_formula_update_request(data):
     request = AIRequestCreate(
         request_type="formula_update",
@@ -268,23 +270,33 @@ def submit_ai_formula_update_request(data):
 
 
 def submit_ai_new_shape_request(data, uploaded_image):
-    image_path = save_uploaded_shape_image(
+    image_metadata = save_uploaded_image_to_mongodb(
         uploaded_file=uploaded_image,
         shape_name=data.get("shape_name"),
-        category=data.get("category", "beam")
+        category=data.get("category", "beam"),
+        uploaded_by=st.session_state.email,
+        source="ai_new_shape_request"
     )
 
     request_id = create_new_shape_request(
         requested_by=st.session_state.email,
         requested_by_name=st.session_state.name,
+
         project_id=data.get("project_id"),
         project_name=data.get("project_name"),
+
         category=data.get("category", "beam"),
         shape_name=data.get("shape_name"),
         description=data.get("description", ""),
-        image_path=image_path,
+
         outputs=data.get("outputs", []),
-        reason=data.get("reason", "")
+        reason=data.get("reason", ""),
+
+        image_path=None,
+        image_file_id=image_metadata.get("image_file_id"),
+        image_filename=image_metadata.get("image_filename"),
+        image_mime_type=image_metadata.get("image_mime_type"),
+        image_storage=image_metadata.get("image_storage")
     )
 
     return request_id

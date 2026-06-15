@@ -84,7 +84,11 @@ def create_project_custom_shape(
     image_path: str,
     outputs: list,
     created_by: str,
-    ai_request_id: str = None
+    ai_request_id: str = None,
+    image_file_id: str = None,
+    image_filename: str = None,
+    image_mime_type: str = None,
+    image_storage: str = None
 ):
     custom_shape = {
         "project_id": project_id,
@@ -93,7 +97,13 @@ def create_project_custom_shape(
         "category": category,
         "shape_name": shape_name,
         "description": description,
+
         "image_path": image_path,
+        "image_file_id": image_file_id,
+        "image_filename": image_filename,
+        "image_mime_type": image_mime_type,
+        "image_storage": image_storage,
+
         "outputs": outputs,
         "is_active": True,
         "created_by": created_by,
@@ -152,6 +162,7 @@ def save_uploaded_shape_image(uploaded_file, shape_name: str, category: str = "b
         file.write(uploaded_file.getbuffer())
 
     return file_path
+
 
 def list_shapes(category: str = "beam", search_text: str = "", status_filter: str = "All"):
     query = {}
@@ -247,6 +258,30 @@ def approve_new_shape_request_to_project(request: dict, admin_email: str):
     shape_name = payload.get("shape_name") or request.get("shape_name")
     description = payload.get("description", "")
     image_path = payload.get("image_path") or request.get("new_shape_image_path")
+
+    image_file_id = (
+            payload.get("image_file_id")
+            or request.get("new_shape_image_file_id")
+            or request.get("image_file_id")
+    )
+
+    image_filename = (
+            payload.get("image_filename")
+            or request.get("new_shape_image_filename")
+            or request.get("image_filename")
+    )
+
+    image_mime_type = (
+            payload.get("image_mime_type")
+            or request.get("new_shape_image_mime_type")
+            or request.get("image_mime_type")
+    )
+
+    image_storage = (
+            payload.get("image_storage")
+            or request.get("new_shape_image_storage")
+            or request.get("image_storage")
+    )
     outputs = payload.get("outputs", [])
 
     if not project_id:
@@ -267,7 +302,11 @@ def approve_new_shape_request_to_project(request: dict, admin_email: str):
         image_path=image_path,
         outputs=outputs,
         created_by=admin_email,
-        ai_request_id=str(request["_id"])
+        ai_request_id=str(request["_id"]),
+        image_file_id=image_file_id,
+        image_filename=image_filename,
+        image_mime_type=image_mime_type,
+        image_storage=image_storage
     )
 
 def get_customization_type_label(custom_type: str):

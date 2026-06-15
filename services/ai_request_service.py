@@ -107,6 +107,7 @@ def reject_ai_request(request_id, admin_email: str, admin_comment: str = ""):
 def count_ai_requests(query=None):
     return ai_requests_collection.count_documents(query or {})
 
+
 def create_new_shape_request(
     requested_by: str,
     requested_by_name: str,
@@ -115,24 +116,48 @@ def create_new_shape_request(
     category: str,
     shape_name: str,
     description: str,
-    image_path: str,
     outputs: list,
-    reason: str
+    reason: str,
+    image_path: str = None,
+    image_file_id: str = None,
+    image_filename: str = None,
+    image_mime_type: str = None,
+    image_storage: str = None
 ):
     request_data = {
         "request_type": "new_shape",
         "requested_by": requested_by,
         "requested_by_name": requested_by_name,
+
         "project_id": project_id,
         "project_name": project_name,
+
         "category": category,
         "shape_name": shape_name,
         "reason": reason,
+
+        # Old local-path support
         "new_shape_image_path": image_path,
+
+        # New MongoDB GridFS support
+        "new_shape_image_file_id": image_file_id,
+        "new_shape_image_filename": image_filename,
+        "new_shape_image_mime_type": image_mime_type,
+        "new_shape_image_storage": image_storage,
+
         "new_shape_payload": {
             "shape_name": shape_name,
             "description": description,
+
+            # Old local-path support
             "image_path": image_path,
+
+            # New MongoDB GridFS support
+            "image_file_id": image_file_id,
+            "image_filename": image_filename,
+            "image_mime_type": image_mime_type,
+            "image_storage": image_storage,
+
             "outputs": outputs
         },
         "status": "pending"
